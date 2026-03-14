@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>St. Louis Market Heat Map | George Kindler</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F5F0E8;
+    --navy: #0A1628;
+    --navy-mid: #1B3A6B;
+    --red: #C0392B;
+    --gold: #D4A017;
+    --green: #1a7a4a;
+    --mid-gray: #8A9BB0;
+    --light: #EBF2FF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--navy);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--navy);
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--gold);
+  }
+
+  .header-left h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: white;
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+
+  .header-left p {
+    font-size: 11px;
+    color: var(--mid-gray);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .header-right {
+    text-align: right;
+  }
+
+  .header-right .agent-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .header-right .agent-sub {
+    font-size: 10px;
+    color: var(--mid-gray);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* CONTROLS */
+  .controls {
+    background: white;
+    border-bottom: 1px solid #ddd;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .control-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--mid-gray);
+    margin-bottom: 4px;
+  }
+
+  .metric-btn {
+    background: var(--cream);
+    border: 1.5px solid #ddd;
+    padding: 8px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--navy);
+    cursor: pointer;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+
+  .metric-btn.active {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: white;
+  }
+
+  .metric-btn:hover:not(.active) {
+    border-color: var(--navy);
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .legend-bar {
+    width: 160px;
+    height: 12px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #C0392B, #E8A020, #1a7a4a);
+  }
+
+  .legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--mid-gray);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    min-height: calc(100vh - 120px);
+  }
+
+  /* MAP */
+  .map-container {
+    padding: 24px;
+    position: relative;
+  }
+
+  #map {
+    width: 100%;
+    height: 580px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+  }
+
+  .map-source {
+    font-size: 10px;
+    color: var(--mid-gray);
+    margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: white;
+    border-left: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-header {
+    background: var(--navy);
+    padding: 20px 24px;
+    color: white;
+  }
+
+  .sidebar-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+
+  .sidebar-header p {
+    font-size: 11px;
+    color: var(--mid-gray);
+    margin-top: 4px;
+  }
+
+  .zip-placeholder {
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--mid-gray);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .zip-placeholder .icon {
+    font-size: 48px;
+    opacity: 0.3;
+  }
+
+  .zip-placeholder p {
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 200px;
+  }
+
+  .zip-detail {
+    padding: 24px;
+    flex: 1;
+    display: none;
+  }
+
+  .zip-detail.visible {
+    display: block;
+  }
+
+  .zip-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 2px;
+    color: var(--navy);
+    line-height: 1;
+  }
+
+  .zip-city {
+    font-size: 12px;
+    color: var(--mid-gray);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    margin-top: 2px;
+  }
+
+  .stat-card {
+    background: var(--cream);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid var(--navy);
+  }
+
+  .stat-card.hot {
+    border-left-color: var(--green);
+    background: #f0faf5;
+  }
+
+  .stat-card.warm {
+    border-left-color: var(--gold);
+    background: #fdf8ee;
+  }
+
+  .stat-card.cool {
+    border-left-color: var(--red);
+    background: #fdf0ef;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--mid-gray);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--navy);
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--mid-gray);
+    margin-top: 3px;
+  }
+
+  .competition-bar {
+    height: 6px;
+    background: #eee;
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .competition-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .verdict {
+    background: var(--navy);
+    color: white;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-top: 16px;
+  }
+
+  .verdict-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--mid-gray);
+    margin-bottom: 6px;
+  }
+
+  .verdict-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .cta {
+    margin: 0 24px 24px;
+    background: var(--gold);
+    border: none;
+    padding: 14px 20px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--navy);
+    cursor: pointer;
+    border-radius: 4px;
+    width: calc(100% - 48px);
+    transition: all 0.15s;
+  }
+
+  .cta:hover {
+    background: #c49010;
+  }
+
+  /* TOP ZIPS TABLE */
+  .rankings {
+    padding: 24px;
+    border-top: 1px solid #eee;
+  }
+
+  .rankings h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    color: var(--navy);
+  }
+
+  .rank-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .rank-row:hover {
+    padding-left: 4px;
+  }
+
+  .rank-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--mid-gray);
+    width: 20px;
+  }
+
+  .rank-zip {
+    font-weight: 600;
+    font-size: 13px;
+    flex: 1;
+    padding-left: 8px;
+  }
+
+  .rank-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+  }
+
+  .rank-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 8px;
+  }
+
+  /* TOOLTIP */
+  .tooltip {
+    position: absolute;
+    background: var(--navy);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    max-width: 200px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .tooltip-zip {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 1px;
+    color: var(--gold);
+  }
+
+  .tooltip-stat {
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #aaa;
+  }
+
+  .tooltip-stat span {
+    color: white;
+    font-weight: 500;
+  }
+
+  /* FOOTER */
+  .footer {
+    background: var(--navy);
+    color: var(--mid-gray);
+    padding: 16px 32px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer a {
+    color: var(--gold);
+    text-decoration: none;
+  }
+
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { border-left: none; border-top: 1px solid #ddd; }
+    #map { height: 400px; }
+    .controls { padding: 12px 16px; gap: 12px; }
+    .legend { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>ST. LOUIS MARKET HEAT MAP</h1>
+    <p>First Weekend Competition by Zip Code &nbsp;·&nbsp; 2,369 Transactions</p>
+  </div>
+  <div class="header-right">
+    <div class="agent-name">GEORGE KINDLER</div>
+    <div class="agent-sub">St. Louis Real Estate · 13 Years · USMC Veteran</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div>
+    <div class="control-label">Color Map By</div>
+    <div style="display:flex;gap:8px;">
+      <button class="metric-btn active" onclick="setMetric('fw_pct')">First Weekend %</button>
+      <button class="metric-btn" onclick="setMetric('median_premium')">Median Premium</button>
+      <button class="metric-btn" onclick="setMetric('median_dom')">Days on Market</button>
+      <button class="metric-btn" onclick="setMetric('pct_above_list')">% Above List</button>
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <div class="control-label">Competition</div>
+    <div class="legend">
+      <span style="font-size:10px;color:var(--red);font-family:'DM Mono',monospace;">Low</span>
+      <div>
+        <div class="legend-bar"></div>
+        <div class="legend-labels"><span>—</span><span>—</span><span>—</span></div>
+      </div>
+      <span style="font-size:10px;color:var(--green);font-family:'DM Mono',monospace;">High</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="map-container">
+    <div id="map"></div>
+    <div class="map-source">Source: MARIS MLS · Single Family Residential · Compiled by George Kindler · georgeandlizk@gmail.com</div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>ZIP CODE DETAILS</h2>
+      <p>Click any zip code on the map</p>
+    </div>
+
+    <div class="zip-placeholder" id="placeholder">
+      <div class="icon">📍</div>
+      <p>Click a zip code on the map to see detailed market stats</p>
+    </div>
+
+    <div class="zip-detail" id="zip-detail">
+      <div class="zip-title" id="detail-zip"></div>
+      <div class="zip-city" id="detail-city"></div>
+
+      <div class="stat-card" id="card-fw">
+        <div class="stat-label">First Weekend Rate</div>
+        <div class="stat-value" id="detail-fw"></div>
+        <div class="stat-sub">of homes go under contract days 1–7</div>
+        <div class="competition-bar"><div class="competition-fill" id="fw-bar"></div></div>
+      </div>
+
+      <div class="stat-card" id="card-premium">
+        <div class="stat-label">Median First Weekend Premium</div>
+        <div class="stat-value" id="detail-premium"></div>
+        <div class="stat-sub">above list price when sold first weekend</div>
+      </div>
+
+      <div class="stat-card" id="card-dom">
+        <div class="stat-label">Median Days on Market</div>
+        <div class="stat-value" id="detail-dom"></div>
+        <div class="stat-sub">days from list to contract</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Median Sale Price</div>
+        <div class="stat-value" id="detail-close"></div>
+        <div class="stat-sub" id="detail-transactions"></div>
+      </div>
+
+      <div class="verdict" id="verdict">
+        <div class="verdict-label">Market Verdict</div>
+        <div class="verdict-text" id="verdict-text"></div>
+      </div>
+    </div>
+
+    <button class="cta" onclick="contactAgent()">GET A FREE CONSULTATION →</button>
+
+    <div class="rankings" id="rankings">
+      <h3>MOST COMPETITIVE ZIPS</h3>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>© 2025 George Kindler · The Closing Pros LLC · Missouri Licensed Real Estate Agent</span>
+  <a href="mailto:georgeandlizk@gmail.com?subject=Market Heat Map Inquiry">georgeandlizk@gmail.com · 314.435.1087</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+
+<script>
+const ZIP_DATA = {
+  "63005": {"total":66,"fw_pct":50.0,"median_premium":0,"median_dom":8,"median_close":850000,"pct_above_list":43.9},
+  "63011": {"total":123,"fw_pct":65.0,"median_premium":8000,"median_dom":4,"median_close":465000,"pct_above_list":61.8},
+  "63017": {"total":95,"fw_pct":56.8,"median_premium":0,"median_dom":6,"median_close":635000,"pct_above_list":48.4},
+  "63021": {"total":127,"fw_pct":59.1,"median_premium":5100,"median_dom":5,"median_close":431000,"pct_above_list":59.1},
+  "63025": {"total":63,"fw_pct":36.5,"median_premium":-8000,"median_dom":24,"median_close":505000,"pct_above_list":30.2},
+  "63026": {"total":94,"fw_pct":55.3,"median_premium":2300,"median_dom":6,"median_close":391250,"pct_above_list":53.2},
+  "63031": {"total":100,"fw_pct":55.0,"median_premium":0,"median_dom":6,"median_close":185500,"pct_above_list":47.0},
+  "63033": {"total":61,"fw_pct":39.3,"median_premium":0,"median_dom":16,"median_close":225100,"pct_above_list":41.0},
+  "63034": {"total":41,"fw_pct":26.8,"median_premium":-4900,"median_dom":32,"median_close":315000,"pct_above_list":26.8},
+  "63038": {"total":24,"fw_pct":54.2,"median_premium":-9500,"median_dom":6,"median_close":712500,"pct_above_list":41.7},
+  "63040": {"total":40,"fw_pct":50.0,"median_premium":0,"median_dom":8,"median_close":524000,"pct_above_list":47.5},
+  "63042": {"total":30,"fw_pct":43.3,"median_premium":-2450,"median_dom":16,"median_close":197950,"pct_above_list":43.3},
+  "63043": {"total":46,"fw_pct":56.5,"median_premium":5050,"median_dom":4,"median_close":295000,"pct_above_list":60.9},
+  "63044": {"total":13,"fw_pct":38.5,"median_premium":100,"median_dom":25,"median_close":299000,"pct_above_list":53.8},
+  "63049": {"total":5,"fw_pct":40.0,"median_premium":0,"median_dom":14,"median_close":610000,"pct_above_list":20.0},
+  "63069": {"total":9,"fw_pct":11.1,"median_premium":-25000,"median_dom":32,"median_close":610000,"pct_above_list":33.3},
+  "63074": {"total":20,"fw_pct":30.0,"median_premium":2100,"median_dom":10,"median_close":175000,"pct_above_list":60.0},
+  "63088": {"total":24,"fw_pct":70.8,"median_premium":3500,"median_dom":4,"median_close":332500,"pct_above_list":58.3},
+  "63105": {"total":17,"fw_pct":47.1,"median_premium":0,"median_dom":8,"median_close":950000,"pct_above_list":47.1},
+  "63114": {"total":51,"fw_pct":49.0,"median_premium":0,"median_dom":8,"median_close":175000,"pct_above_list":33.3},
+  "63117": {"total":21,"fw_pct":52.4,"median_premium":10000,"median_dom":5,"median_close":375000,"pct_above_list":66.7},
+  "63119": {"total":112,"fw_pct":62.5,"median_premium":12000,"median_dom":5,"median_close":402000,"pct_above_list":64.3},
+  "63121": {"total":27,"fw_pct":14.8,"median_premium":-12000,"median_dom":60,"median_close":126500,"pct_above_list":11.1},
+  "63122": {"total":179,"fw_pct":65.9,"median_premium":10000,"median_dom":5,"median_close":645000,"pct_above_list":57.5},
+  "63123": {"total":122,"fw_pct":57.4,"median_premium":4250,"median_dom":5,"median_close":255093,"pct_above_list":56.6},
+  "63124": {"total":40,"fw_pct":40.0,"median_premium":2500,"median_dom":26,"median_close":1412500,"pct_above_list":52.5},
+  "63125": {"total":79,"fw_pct":55.7,"median_premium":4100,"median_dom":5,"median_close":220000,"pct_above_list":63.3},
+  "63126": {"total":59,"fw_pct":59.3,"median_premium":5100,"median_dom":6,"median_close":325000,"pct_above_list":55.9},
+  "63127": {"total":15,"fw_pct":60.0,"median_premium":-6000,"median_dom":6,"median_close":800000,"pct_above_list":40.0},
+  "63128": {"total":85,"fw_pct":56.5,"median_premium":0,"median_dom":6,"median_close":425000,"pct_above_list":43.5},
+  "63129": {"total":153,"fw_pct":50.3,"median_premium":5000,"median_dom":7,"median_close":360000,"pct_above_list":56.9},
+  "63130": {"total":83,"fw_pct":48.2,"median_premium":0,"median_dom":9,"median_close":503000,"pct_above_list":47.0},
+  "63131": {"total":47,"fw_pct":51.1,"median_premium":4000,"median_dom":7,"median_close":1235000,"pct_above_list":53.2},
+  "63132": {"total":19,"fw_pct":52.6,"median_premium":-2900,"median_dom":6,"median_close":475000,"pct_above_list":47.4},
+  "63134": {"total":8,"fw_pct":50.0,"median_premium":-700,"median_dom":8,"median_close":133000,"pct_above_list":50.0},
+  "63135": {"total":29,"fw_pct":34.5,"median_premium":-7000,"median_dom":17,"median_close":162000,"pct_above_list":31.0},
+  "63136": {"total":20,"fw_pct":45.0,"median_premium":50,"median_dom":10,"median_close":112500,"pct_above_list":50.0},
+  "63137": {"total":15,"fw_pct":13.3,"median_premium":0,"median_dom":36,"median_close":120000,"pct_above_list":33.3},
+  "63138": {"total":20,"fw_pct":25.0,"median_premium":-5000,"median_dom":14,"median_close":172500,"pct_above_list":30.0},
+  "63141": {"total":59,"fw_pct":52.5,"median_premium":0,"median_dom":7,"median_close":675000,"pct_above_list":42.4},
+  "63143": {"total":16,"fw_pct":50.0,"median_premium":-2500,"median_dom":8,"median_close":300000,"pct_above_list":31.2},
+  "63144": {"total":26,"fw_pct":69.2,"median_premium":20000,"median_dom":4,"median_close":407000,"pct_above_list":61.5},
+  "63146": {"total":57,"fw_pct":54.4,"median_premium":0,"median_dom":6,"median_close":371000,"pct_above_list":45.6}
+};
+
+const ZIP_CITIES = {
+  "63005":"Chesterfield","63011":"Ballwin","63017":"Chesterfield","63021":"Ballwin",
+  "63025":"Eureka","63026":"Fenton","63031":"Florissant","63033":"Florissant",
+  "63034":"Florissant","63038":"Glencoe","63040":"Grover","63042":"Hazelwood",
+  "63043":"Maryland Heights","63044":"Bridgeton","63049":"House Springs","63069":"Pacific",
+  "63074":"St. Ann","63088":"Valley Park","63105":"Clayton","63114":"Overland",
+  "63117":"Richmond Heights","63119":"Webster Groves","63121":"University City",
+  "63122":"Kirkwood","63123":"Affton","63124":"Ladue","63125":"Mehlville",
+  "63126":"Crestwood","63127":"Sunset Hills","63128":"Mehlville","63129":"Oakville",
+  "63130":"University City","63131":"Des Peres","63132":"Olivette","63134":"Berkeley",
+  "63135":"Ferguson","63136":"Jennings","63137":"Bellefontaine","63138":"Spanish Lake",
+  "63141":"Creve Coeur","63143":"Maplewood","63144":"Brentwood","63146":"Creve Coeur"
+};
+
+let currentMetric = 'fw_pct';
+let map, geojsonLayer;
+let zipLayers = {};
+
+function getMetricValue(zip) {
+  const d = ZIP_DATA[zip];
+  if (!d) return null;
+  if (currentMetric === 'fw_pct') return d.fw_pct;
+  if (currentMetric === 'median_premium') return d.median_premium;
+  if (currentMetric === 'median_dom') return d.median_dom;
+  if (currentMetric === 'pct_above_list') return d.pct_above_list;
+}
+
+function getColor(zip) {
+  const d = ZIP_DATA[zip];
+  if (!d) return '#cccccc';
+
+  let val, min, max;
+  if (currentMetric === 'fw_pct') { val = d.fw_pct; min = 10; max = 75; }
+  else if (currentMetric === 'median_premium') { val = d.median_premium; min = -30000; max = 25000; }
+  else if (currentMetric === 'median_dom') { val = d.median_dom; min = 3; max = 65; max = 65; }
+  else if (currentMetric === 'pct_above_list') { val = d.pct_above_list; min = 10; max = 70; }
+
+  let t = (val - min) / (max - min);
+  t = Math.max(0, Math.min(1, t));
+
+  // dom is inverted (less days = better)
+  if (currentMetric === 'median_dom') t = 1 - t;
+
+  // red -> gold -> green
+  if (t < 0.5) {
+    const r = Math.round(192 + (212 - 192) * (t * 2));
+    const g = Math.round(57 + (160 - 57) * (t * 2));
+    const b = Math.round(43 + (23 - 43) * (t * 2));
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const r = Math.round(212 + (26 - 212) * ((t - 0.5) * 2));
+    const g = Math.round(160 + (122 - 160) * ((t - 0.5) * 2));
+    const b = Math.round(23 + (74 - 23) * ((t - 0.5) * 2));
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
+function setMetric(metric) {
+  currentMetric = metric;
+  document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (geojsonLayer) {
+    geojsonLayer.eachLayer(layer => {
+      const zip = layer.feature.properties.ZCTA5CE10 || layer.feature.properties.GEOID10 || layer.feature.properties.zip;
+      const color = ZIP_DATA[zip] ? getColor(zip) : '#eeeeee';
+      layer.setStyle({ fillColor: color, fillOpacity: ZIP_DATA[zip] ? 0.75 : 0.2 });
+    });
+  }
+}
+
+function formatCurrency(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '$' + Math.round(n/1000) + 'K';
+  return '$' + n.toLocaleString();
+}
+
+function getVerdict(d) {
+  if (d.fw_pct >= 65) return "🔥 Highly competitive. Price at market or above. First weekend strategy is critical here.";
+  if (d.fw_pct >= 55) return "⚡ Active market. Strong pricing and a pre-approved buyer puts you in a great position.";
+  if (d.fw_pct >= 45) return "📊 Balanced. Room to negotiate on sitting inventory. First weekend still rewarded.";
+  if (d.fw_pct >= 35) return "🔍 Buyer-friendly. Look at homes with 20+ days on market for real negotiating leverage.";
+  return "💡 Slow market. Patient buyers win here. Sellers are motivated and open to concessions.";
+}
+
+function showZipDetail(zip) {
+  const d = ZIP_DATA[zip];
+  if (!d) return;
+
+  document.getElementById('placeholder').style.display = 'none';
+  const detail = document.getElementById('zip-detail');
+  detail.classList.add('visible');
+
+  document.getElementById('detail-zip').textContent = zip;
+  document.getElementById('detail-city').textContent = ZIP_CITIES[zip] || 'St. Louis Area';
+  document.getElementById('detail-fw').textContent = d.fw_pct + '%';
+  document.getElementById('detail-dom').textContent = d.median_dom + ' days';
+  document.getElementById('detail-close').textContent = formatCurrency(d.median_close);
+  document.getElementById('detail-transactions').textContent = d.total + ' transactions analyzed';
+
+  const premium = d.median_premium;
+  const premiumEl = document.getElementById('detail-premium');
+  premiumEl.textContent = premium >= 0 ? '+' + formatCurrency(premium) : '-' + formatCurrency(Math.abs(premium));
+  premiumEl.style.color = premium >= 0 ? '#1a7a4a' : '#C0392B';
+
+  // Bar
+  const bar = document.getElementById('fw-bar');
+  bar.style.width = d.fw_pct + '%';
+  bar.style.background = getColor(zip);
+
+  // Card colors
+  const fwCard = document.getElementById('card-fw');
+  fwCard.className = 'stat-card ' + (d.fw_pct >= 60 ? 'hot' : d.fw_pct >= 45 ? 'warm' : 'cool');
+
+  const premCard = document.getElementById('card-premium');
+  premCard.className = 'stat-card ' + (premium >= 5000 ? 'hot' : premium >= 0 ? 'warm' : 'cool');
+
+  const domCard = document.getElementById('card-dom');
+  domCard.className = 'stat-card ' + (d.median_dom <= 6 ? 'hot' : d.median_dom <= 12 ? 'warm' : 'cool');
+
+  document.getElementById('verdict-text').textContent = getVerdict(d);
+}
+
+function contactAgent() {
+  window.location.href = 'mailto:georgeandlizk@gmail.com?subject=St. Louis Market Inquiry&body=Hi George, I saw your market heat map and would like to discuss the St. Louis market.';
+}
+
+// Build rankings
+function buildRankings() {
+  const sorted = Object.entries(ZIP_DATA)
+    .sort((a, b) => b[1].fw_pct - a[1].fw_pct)
+    .slice(0, 8);
+
+  const el = document.getElementById('rankings');
+  sorted.forEach(([zip, d], i) => {
+    const row = document.createElement('div');
+    row.className = 'rank-row';
+    row.onclick = () => showZipDetail(zip);
+    row.innerHTML = `
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-zip">${zip} <span style="font-weight:300;color:var(--mid-gray);font-size:11px;">${ZIP_CITIES[zip]||''}</span></span>
+      <span class="rank-pct">${d.fw_pct}%</span>
+      <div class="rank-dot" style="background:${getColor(zip)}"></div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+// Initialize map
+const map_obj = L.map('map', {
+  center: [38.627, -90.355],
+  zoom: 11,
+  zoomControl: true
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  maxZoom: 18
+}).addTo(map_obj);
+
+// Load zip code boundaries
+fetch('https://raw.githubusercontent.com/OpenDataDE/State-zip-code-GeoJSON/master/mo_missouri_zip_codes_geo.min.json')
+  .then(r => r.json())
+  .then(data => {
+    // Filter to our zips
+    const ourZips = new Set(Object.keys(ZIP_DATA));
+    data.features = data.features.filter(f => {
+      const zip = f.properties.ZCTA5CE10 || f.properties.zip;
+      return ourZips.has(zip);
+    });
+
+    geojsonLayer = L.geoJSON(data, {
+      style: feature => {
+        const zip = feature.properties.ZCTA5CE10 || feature.properties.zip;
+        return {
+          fillColor: ZIP_DATA[zip] ? getColor(zip) : '#eeeeee',
+          fillOpacity: ZIP_DATA[zip] ? 0.75 : 0.2,
+          color: '#0A1628',
+          weight: 1.5,
+          opacity: 0.6
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const zip = feature.properties.ZCTA5CE10 || feature.properties.zip;
+        zipLayers[zip] = layer;
+
+        layer.on('mouseover', function(e) {
+          if (!ZIP_DATA[zip]) return;
+          this.setStyle({ weight: 3, fillOpacity: 0.9 });
+          const d = ZIP_DATA[zip];
+          const tooltip = document.getElementById('tooltip');
+          tooltip.style.display = 'block';
+          tooltip.innerHTML = `
+            <div class="tooltip-zip">${zip}</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;">${ZIP_CITIES[zip]||''}</div>
+            <div class="tooltip-stat">First Weekend: <span>${d.fw_pct}%</span></div>
+            <div class="tooltip-stat">Median Premium: <span>${d.median_premium >= 0 ? '+' : ''}${formatCurrency(d.median_premium)}</span></div>
+            <div class="tooltip-stat">Median DOM: <span>${d.median_dom} days</span></div>
+            <div class="tooltip-stat">Median Price: <span>${formatCurrency(d.median_close)}</span></div>
+          `;
+        });
+
+        layer.on('mousemove', function(e) {
+          const tooltip = document.getElementById('tooltip');
+          const mapEl = document.getElementById('map');
+          const rect = mapEl.getBoundingClientRect();
+          tooltip.style.left = (e.originalEvent.clientX - rect.left + 12) + 'px';
+          tooltip.style.top = (e.originalEvent.clientY - rect.top - 80) + 'px';
+        });
+
+        layer.on('mouseout', function() {
+          this.setStyle({ weight: 1.5, fillOpacity: ZIP_DATA[zip] ? 0.75 : 0.2 });
+          document.getElementById('tooltip').style.display = 'none';
+        });
+
+        layer.on('click', function() {
+          if (ZIP_DATA[zip]) showZipDetail(zip);
+        });
+
+        // Add zip label
+        if (ZIP_DATA[zip]) {
+          const center = layer.getBounds().getCenter();
+          L.marker(center, {
+            icon: L.divIcon({
+              className: '',
+              html: `<div style="font-family:'DM Mono',monospace;font-size:9px;font-weight:500;color:#0A1628;text-shadow:0 0 3px white,0 0 3px white;white-space:nowrap;">${zip}</div>`,
+              iconAnchor: [16, 6]
+            })
+          }).addTo(map_obj);
+        }
+      }
+    }).addTo(map_obj);
+
+    map_obj.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
+  })
+  .catch(err => {
+    console.log('GeoJSON load error:', err);
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#666;font-family:DM Sans,sans-serif;text-align:center;padding:40px;"><div><p style="font-size:18px;font-weight:600;margin-bottom:12px;">Map Loading</p><p style="font-size:13px;">If the map does not appear, ensure this file is served from a web server (not opened directly from your computer).<br><br>Upload to Google Sites or any web host to enable the interactive map.</p></div></div>';
+  });
+
+buildRankings();
+</script>
+</body>
+</html>
