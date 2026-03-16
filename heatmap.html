@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>St. Louis Market Heat Map — George Kindler</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root{--cream:#F5F0E8;--navy:#0A1628;--navy-mid:#1B3A6B;--red:#C0392B;--gold:#D4A017;--green:#1a7a4a;--gray:#8A9BB0;--warn:#E8A020;--white:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--cream);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+.header{background:var(--navy);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gold);flex-shrink:0;z-index:1000;}
+.header-left h1{font-family:'Bebas Neue',sans-serif;font-size:22px;color:white;letter-spacing:2px;}
+.header-left h1 span{color:var(--gold);}
+.header-left p{font-size:10px;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.header-right{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold);letter-spacing:1.5px;text-align:right;}
+.header-right small{display:block;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--gray);letter-spacing:.5px;margin-top:2px;}
+
+.controls{background:var(--navy-mid);padding:10px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.1);}
+.metric-btn{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;padding:6px 14px;border:1.5px solid rgba(255,255,255,0.25);border-radius:3px;color:rgba(255,255,255,0.6);background:transparent;cursor:pointer;}
+.metric-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(212,160,23,0.1);}
+.metric-btn:hover:not(.active){border-color:rgba(255,255,255,0.5);color:white;}
+.controls-label{font-size:10px;color:var(--gray);letter-spacing:1px;text-transform:uppercase;}
+
+.legend-row{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.legend-label{font-size:10px;color:var(--gray);}
+.legend-grad{width:120px;height:10px;border-radius:2px;}
+
+.main{display:flex;flex:1;overflow:hidden;}
+#map{flex:1;height:100%;}
+
+.sidebar{width:280px;background:var(--navy);border-left:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+.sidebar-head{background:var(--navy-mid);padding:14px 18px;flex-shrink:0;}
+.sidebar-head h2{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;color:white;}
+.sidebar-head p{font-size:11px;color:var(--gray);margin-top:2px;}
+
+.zip-detail{padding:18px;flex:1;overflow-y:auto;}
+.zip-detail.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--gray);}
+.zip-detail.empty p{font-size:12px;line-height:1.6;max-width:200px;}
+.zip-detail.empty .icon{font-size:32px;margin-bottom:12px;opacity:0.3;}
+
+.zip-name{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1.5px;color:white;line-height:1;}
+.zip-city{font-size:13px;color:var(--gray);margin-top:2px;margin-bottom:16px;}
+.zip-badge{display:inline-block;padding:3px 10px;border-radius:2px;font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:1px;margin-bottom:14px;}
+.zip-badge.hot{background:rgba(26,122,74,0.2);color:#5DCAA5;border:1px solid rgba(26,122,74,0.4);}
+.zip-badge.warm{background:rgba(212,160,23,0.15);color:var(--gold);border:1px solid rgba(212,160,23,0.3);}
+.zip-badge.cool{background:rgba(192,57,43,0.15);color:#E88080;border:1px solid rgba(192,57,43,0.3);}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.stat{background:rgba(255,255,255,0.05);border-radius:3px;padding:10px 12px;border:1px solid rgba(255,255,255,0.07);}
+.stat-label{font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:white;}
+.stat-val.green{color:#5DCAA5;}
+.stat-val.gold{color:var(--gold);}
+.stat-val.red{color:#E88080;}
+.stat-sub{font-size:10px;color:var(--gray);margin-top:2px;}
+
+.insight{background:rgba(255,255,255,0.04);border-left:3px solid var(--gold);padding:10px 12px;border-radius:0 3px 3px 0;font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:10px;}
+
+.sample-note{font-size:10px;color:var(--gray);margin-top:8px;line-height:1.5;}
+
+.footer{background:var(--navy-mid);padding:8px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.1);}
+.footer p{font-size:10px;color:var(--gray);}
+.footer a{color:var(--gold);text-decoration:none;}
+
+/* Leaflet overrides */
+.leaflet-container{background:#0f1f3a;}
+.leaflet-control-zoom a{background:var(--navy-mid)!important;color:white!important;border-color:rgba(255,255,255,0.15)!important;}
+.leaflet-control-zoom a:hover{background:var(--navy)!important;}
+.leaflet-control-attribution{background:rgba(10,22,40,0.8)!important;color:var(--gray)!important;font-size:10px!important;}
+.leaflet-control-attribution a{color:var(--gray)!important;}
+.leaflet-popup-content-wrapper{background:var(--navy);color:white;border:1px solid rgba(255,255,255,0.15);border-radius:4px;}
+.leaflet-popup-tip{background:var(--navy);}
+.leaflet-popup-content{margin:12px 16px;font-family:'DM Sans',sans-serif;font-size:13px;}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>ST. LOUIS <span>MARKET HEAT MAP</span></h1>
+    <p>George Kindler · The Closing Pros · 7,006 Sales · 2025 Data</p>
+  </div>
+  <div class="header-right">
+    GEORGE KINDLER
+    <small>Licensed Missouri Real Estate Agent · 13 Years</small>
+  </div>
+</header>
+
+<div class="controls">
+  <span class="controls-label">Color by:</span>
+  <button class="metric-btn active" onclick="setMetric('fw')">First Weekend Rate</button>
+  <button class="metric-btn" onclick="setMetric('dom')">Days on Market</button>
+  <button class="metric-btn" onclick="setMetric('price')">Median Price</button>
+  <button class="metric-btn" onclick="setMetric('above')">% Above List</button>
+  <div class="legend-row">
+    <span class="legend-label" id="legend-low"></span>
+    <canvas class="legend-grad" id="legend-grad" width="120" height="10"></canvas>
+    <span class="legend-label" id="legend-high"></span>
+  </div>
+</div>
+
+<div class="main">
+  <div id="map"></div>
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <h2>ZIP CODE DETAIL</h2>
+      <p>Click any zip code on the map</p>
+    </div>
+    <div class="zip-detail empty" id="detail">
+      <div class="icon">📍</div>
+      <p>Click any zip code to see first weekend rate, median price, days on market, and sale-to-list ratio.</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p>Data: 7,006 residential sales · St. Louis County, St. Louis City, Jefferson County, St. Charles County · 2025</p>
+  <p><a href="mailto:george@example.com">Contact George Kindler</a></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const ZIP_DATA = {
+  "63005":{city:"Chesterfield",n:70,fw:41.4,dom:7.5,price:800000,splp:100.0,above:52.9},
+  "63010":{city:"Arnold",n:122,fw:45.9,dom:6.5,price:282400,splp:101.4,above:67.2},
+  "63011":{city:"Ballwin",n:169,fw:47.3,dom:6,price:455000,splp:101.1,above:69.2},
+  "63012":{city:"Barnhart",n:43,fw:39.5,dom:9,price:290000,splp:100.0,above:69.8},
+  "63016":{city:"Cedar Hill",n:26,fw:26.9,dom:37.5,price:326000,splp:98.7,above:46.2},
+  "63017":{city:"Chesterfield",n:130,fw:46.9,dom:6.0,price:575000,splp:100.0,above:59.2},
+  "63019":{city:"Crystal City",n:27,fw:33.3,dom:25,price:230000,splp:100.0,above:55.6},
+  "63020":{city:"De Soto",n:126,fw:19.0,dom:38.5,price:219500,splp:100.0,above:56.3},
+  "63021":{city:"Ballwin",n:192,fw:49.0,dom:6.0,price:414200,splp:100.6,above:69.3},
+  "63023":{city:"Dittmer",n:24,fw:29.2,dom:33.0,price:332500,splp:100.0,above:54.2},
+  "63025":{city:"Eureka",n:108,fw:21.3,dom:32.5,price:442500,splp:99.9,above:50.0},
+  "63026":{city:"Fenton",n:224,fw:46.0,dom:7.0,price:387400,splp:100.7,above:70.5},
+  "63028":{city:"Festus",n:149,fw:31.5,dom:19,price:320000,splp:100.0,above:61.1},
+  "63031":{city:"Florissant",n:217,fw:36.4,dom:11,price:180000,splp:100.0,above:69.6},
+  "63033":{city:"Florissant",n:151,fw:30.5,dom:16,price:220000,splp:100.0,above:65.6},
+  "63034":{city:"Florissant",n:71,fw:26.8,dom:18,price:289000,splp:100.0,above:53.5},
+  "63038":{city:"Wildwood",n:34,fw:47.1,dom:4.5,price:626200,splp:100.0,above:58.8},
+  "63040":{city:"Wildwood",n:45,fw:53.3,dom:6,price:525000,splp:100.8,above:71.1},
+  "63042":{city:"Hazelwood",n:64,fw:34.4,dom:9.0,price:195000,splp:100.0,above:59.4},
+  "63043":{city:"Maryland Heights",n:83,fw:53.0,dom:4,price:295000,splp:101.9,above:71.1},
+  "63044":{city:"Bridgeton",n:40,fw:42.5,dom:9.5,price:267500,splp:100.0,above:65.0},
+  "63048":{city:"Herculaneum",n:25,fw:24.0,dom:24,price:319900,splp:100.0,above:64.0},
+  "63049":{city:"High Ridge",n:82,fw:45.1,dom:6.0,price:297500,splp:100.0,above:64.6},
+  "63050":{city:"Hillsboro",n:90,fw:31.1,dom:36.0,price:328500,splp:100.0,above:61.1},
+  "63051":{city:"House Springs",n:61,fw:36.1,dom:11,price:290000,splp:100.0,above:60.7},
+  "63052":{city:"Imperial",n:132,fw:50.0,dom:6.0,price:331500,splp:100.4,above:72.0},
+  "63069":{city:"Pacific",n:22,fw:22.7,dom:27.5,price:532500,splp:100.0,above:54.5},
+  "63070":{city:"Pevely",n:37,fw:40.5,dom:14,price:281000,splp:101.7,above:78.4},
+  "63074":{city:"St Ann",n:61,fw:24.6,dom:18,price:166500,splp:100.0,above:57.4},
+  "63088":{city:"Valley Park",n:37,fw:56.8,dom:5,price:320000,splp:101.4,above:73.0},
+  "63104":{city:"St Louis",n:64,fw:21.9,dom:18.0,price:443200,splp:99.3,above:45.3},
+  "63105":{city:"Clayton",n:21,fw:33.3,dom:19,price:850000,splp:100.0,above:61.9},
+  "63108":{city:"St Louis",n:17,fw:23.5,dom:32,price:581000,splp:98.4,above:35.3},
+  "63109":{city:"St Louis",n:152,fw:45.4,dom:8.0,price:301700,splp:100.0,above:66.4},
+  "63110":{city:"St Louis",n:54,fw:31.5,dom:18.0,price:349700,splp:100.0,above:53.7},
+  "63111":{city:"St Louis",n:66,fw:27.3,dom:34.0,price:165000,splp:100.0,above:62.1},
+  "63112":{city:"St Louis",n:19,fw:0.0,dom:62,price:275000,splp:98.0,above:42.1},
+  "63113":{city:"St Louis",n:6,fw:0.0,dom:21.5,price:72000,splp:98.4,above:50.0},
+  "63114":{city:"St Louis",n:136,fw:38.2,dom:8.0,price:164400,splp:100.0,above:65.4},
+  "63115":{city:"St Louis",n:9,fw:11.1,dom:44,price:74600,splp:99.6,above:44.4},
+  "63116":{city:"St Louis",n:201,fw:30.3,dom:21,price:221600,splp:100.0,above:65.2},
+  "63117":{city:"St Louis",n:31,fw:48.4,dom:9,price:355000,splp:101.9,above:67.7},
+  "63118":{city:"St Louis",n:80,fw:23.8,dom:28.5,price:263400,splp:100.0,above:51.2},
+  "63119":{city:"St Louis",n:164,fw:52.4,dom:5.0,price:393000,splp:101.6,above:71.3},
+  "63120":{city:"St Louis",n:6,fw:16.7,dom:59.0,price:72000,splp:97.6,above:50.0},
+  "63121":{city:"St Louis",n:63,fw:19.0,dom:32,price:116000,splp:98.8,above:49.2},
+  "63122":{city:"Kirkwood",n:239,fw:54.4,dom:5,price:600000,splp:100.9,above:69.0},
+  "63123":{city:"St Louis",n:236,fw:48.3,dom:6.0,price:259500,splp:100.3,above:72.0},
+  "63124":{city:"St Louis",n:30,fw:33.3,dom:35.0,price:787500,splp:99.4,above:50.0},
+  "63125":{city:"St Louis",n:122,fw:47.5,dom:7.0,price:219000,splp:101.8,above:70.5},
+  "63126":{city:"St Louis",n:80,fw:53.8,dom:5.0,price:330000,splp:102.3,above:75.0},
+  "63127":{city:"St Louis",n:20,fw:45.0,dom:6.5,price:739000,splp:100.0,above:60.0},
+  "63128":{city:"St Louis",n:107,fw:48.6,dom:5,price:421900,splp:100.0,above:69.2},
+  "63129":{city:"St Louis",n:198,fw:44.4,dom:7.5,price:360000,splp:101.1,above:70.2},
+  "63130":{city:"University City",n:127,fw:36.2,dom:11,price:457900,splp:100.0,above:61.4},
+  "63131":{city:"St Louis",n:58,fw:46.6,dom:7.5,price:832500,splp:100.2,above:63.8},
+  "63132":{city:"St Louis",n:43,fw:32.6,dom:26,price:475000,splp:100.0,above:55.8},
+  "63133":{city:"St Louis",n:14,fw:35.7,dom:30.0,price:107500,splp:98.8,above:50.0},
+  "63134":{city:"St Louis",n:53,fw:32.1,dom:12,price:120000,splp:100.0,above:56.6},
+  "63135":{city:"St Louis",n:84,fw:23.8,dom:19.5,price:115600,splp:100.0,above:52.4},
+  "63136":{city:"St Louis",n:135,fw:19.3,dom:25,price:95000,splp:99.7,above:49.6},
+  "63137":{city:"St Louis",n:59,fw:20.3,dom:23,price:110000,splp:100.0,above:55.9},
+  "63138":{city:"St Louis",n:59,fw:22.0,dom:32,price:158200,splp:100.0,above:50.8},
+  "63139":{city:"St Louis",n:118,fw:44.1,dom:7.0,price:255500,splp:100.0,above:60.2},
+  "63141":{city:"Creve Coeur",n:76,fw:46.1,dom:5.5,price:637000,splp:100.0,above:67.1},
+  "63143":{city:"St Louis",n:35,fw:40.0,dom:11,price:290000,splp:100.0,above:62.9},
+  "63144":{city:"St Louis",n:44,fw:52.3,dom:7.0,price:402500,splp:100.2,above:68.2},
+  "63146":{city:"St Louis",n:97,fw:43.3,dom:7,price:355000,splp:100.0,above:60.8},
+  "63147":{city:"St Louis",n:19,fw:5.3,dom:28,price:114000,splp:100.0,above:52.6},
+  "63301":{city:"St Charles",n:210,fw:44.3,dom:6.0,price:320000,splp:100.0,above:68.1},
+  "63303":{city:"St Charles",n:93,fw:59.1,dom:4,price:333000,splp:100.0,above:73.1},
+  "63304":{city:"St Charles",n:116,fw:50.0,dom:5.0,price:350000,splp:100.8,above:70.7},
+  "63341":{city:"Defiance",n:5,fw:0.0,dom:53,price:325000,splp:92.5,above:20.0},
+  "63348":{city:"Foristell",n:13,fw:46.2,dom:10,price:310000,splp:100.0,above:84.6},
+  "63366":{city:"O'Fallon",n:138,fw:42.0,dom:10.5,price:328200,splp:100.0,above:68.8},
+  "63367":{city:"Lake St Louis",n:65,fw:36.9,dom:11,price:345000,splp:100.0,above:50.8},
+  "63368":{city:"O'Fallon",n:84,fw:42.9,dom:6.5,price:360000,splp:100.0,above:63.1},
+  "63376":{city:"St Peters",n:272,fw:50.4,dom:5.0,price:329900,splp:100.7,above:72.1},
+  "63385":{city:"Wentzville",n:197,fw:36.5,dom:12,price:340000,splp:100.0,above:65.5}
+};
+
+// ── COLOR SCALES ──────────────────────────────────────────────────────────
+// All use navy→green for good, navy→red for bad
+// fw: higher = hotter (green)
+// dom: lower = hotter (green) — inverted
+// price: higher = darker gold
+// above: higher = greener
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+function hexToRgb(h){
+  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  return[r,g,b];
+}
+function lerpColor(c1,c2,t){
+  return[Math.round(lerp(c1[0],c2[0],t)),Math.round(lerp(c1[1],c2[1],t)),Math.round(lerp(c1[2],c2[2],t))];
+}
+function rgbToHex(r,g,b){return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+
+// Cold→Warm: navy → amber → green
+const COLD = hexToRgb('#8B1A1A'); // deep red
+const MID  = hexToRgb('#D4A017'); // gold
+const HOT  = hexToRgb('#1a7a4a'); // green
+
+function heatColor(t){ // t = 0 (cold) to 1 (hot)
+  t = clamp(t,0,1);
+  if(t<0.5) return rgbToHex(...lerpColor(COLD,MID,t*2));
+  return rgbToHex(...lerpColor(MID,HOT,(t-0.5)*2));
+}
+
+const METRICS = {
+  fw:  {label:'First Weekend Rate',low:'0%',high:'60%+',min:0,max:60,invert:false,
+        fmt:v=>v.toFixed(1)+'%',unit:'first weekend'},
+  dom: {label:'Median Days on Market',low:'60+ days',high:'4 days',min:3,max:60,invert:true,
+        fmt:v=>v+' days',unit:'median DOM'},
+  price:{label:'Median Sale Price',low:'$75K',high:'$850K+',min:75000,max:850000,invert:false,
+        fmt:v=>'$'+Math.round(v/1000)+'K',unit:'median price'},
+  above:{label:'% Sold At or Above List',low:'20%',high:'85%',min:20,max:85,invert:false,
+        fmt:v=>v.toFixed(1)+'%',unit:'at/above list'},
+};
+
+let currentMetric = 'fw';
+let geoLayer = null;
+let map;
+
+function getVal(d, metric){
+  return metric==='fw'?d.fw : metric==='dom'?d.dom : metric==='price'?d.price : d.above;
+}
+
+function getColor(zip){
+  const d = ZIP_DATA[zip];
+  if(!d) return '#1B3A6B';
+  const m = METRICS[currentMetric];
+  const v = getVal(d, currentMetric);
+  let t = (v - m.min)/(m.max - m.min);
+  if(m.invert) t = 1-t;
+  return heatColor(clamp(t,0,1));
+}
+
+function styleFeature(feature){
+  const zip = feature.properties.ZCTA5CE10 || feature.properties.ZIP || feature.properties.zip || '';
+  const hasData = !!ZIP_DATA[zip];
+  return {
+    fillColor: hasData ? getColor(zip) : '#1B3A6B',
+    fillOpacity: hasData ? 0.82 : 0.25,
+    color: '#0A1628',
+    weight: 1,
+    opacity: 0.7
+  };
+}
+
+function fmt$(n){return '$'+n.toLocaleString();}
+
+function showDetail(zip){
+  const d = ZIP_DATA[zip];
+  const el = document.getElementById('detail');
+  if(!d){
+    el.className='zip-detail empty';
+    el.innerHTML='<div class="icon">📍</div><p>No data available for zip '+zip+'.</p>';
+    return;
+  }
+  const fw = d.fw;
+  const badge = fw>=50?'hot':fw>=35?'warm':'cool';
+  const badgeLabel = fw>=50?'HOT MARKET':fw>=35?'ACTIVE MARKET':'SLOWER MARKET';
+
+  const fwColor = fw>=50?'green':fw>=35?'gold':'red';
+  const domColor = d.dom<=10?'green':d.dom<=25?'gold':'red';
+  const priceColor = 'gold';
+  const aboveColor = d.above>=65?'green':d.above>=50?'gold':'red';
+
+  // Generate insight text
+  let insight = '';
+  if(fw>=50) insight = `${fw}% of homes in this zip sold in the first weekend at or above list price. Sellers here have serious leverage — price it right and expect competition.`;
+  else if(fw>=35) insight = `${fw}% first weekend rate puts this zip in the active tier. Competitive conditions but buyer negotiations are more common than in the hottest corridors.`;
+  else insight = `At ${fw}% first weekend rate, sellers here should plan for longer market time. Pricing to the market early matters more than in high-competition zips.`;
+
+  el.className='zip-detail';
+  el.innerHTML=`
+    <div class="zip-name">${zip}</div>
+    <div class="zip-city">${d.city}</div>
+    <div class="zip-badge ${badge}">${badgeLabel}</div>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-label">First Weekend Rate</div>
+        <div class="stat-val ${fwColor}">${fw}%</div>
+        <div class="stat-sub">sold ≤7 days at/above list</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Median DOM</div>
+        <div class="stat-val ${domColor}">${d.dom}</div>
+        <div class="stat-sub">days on market</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Median Sale Price</div>
+        <div class="stat-val ${priceColor}">${fmt$(d.price)}</div>
+        <div class="stat-sub">all conditions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Sale-to-List</div>
+        <div class="stat-val ${d.splp>=101?'green':d.splp>=99?'gold':'red'}">${d.splp}%</div>
+        <div class="stat-sub">median SP/LP ratio</div>
+      </div>
+    </div>
+    <div class="stat" style="margin-bottom:10px;">
+      <div class="stat-label">% Sold At or Above List Price</div>
+      <div class="stat-val ${aboveColor}" style="font-size:28px;">${d.above}%</div>
+      <div class="stat-sub">of all closed sales</div>
+    </div>
+    <div class="insight">${insight}</div>
+    <div class="sample-note">${d.n} sales in dataset · George Kindler · The Closing Pros · 2025</div>
+  `;
+}
+
+function updateLegend(){
+  const m = METRICS[currentMetric];
+  document.getElementById('legend-low').textContent = m.low;
+  document.getElementById('legend-high').textContent = m.high;
+  const canvas = document.getElementById('legend-grad');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  for(let i=0;i<w;i++){
+    let t = i/w;
+    if(m.invert) t = 1-t;
+    ctx.fillStyle = heatColor(t);
+    ctx.fillRect(i,0,1,h);
+  }
+}
+
+function setMetric(m){
+  currentMetric = m;
+  document.querySelectorAll('.metric-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  updateLegend();
+  if(geoLayer) geoLayer.setStyle(styleFeature);
+}
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────
+map = L.map('map',{
+  center:[38.627,−90.197],
+  zoom:10,
+  zoomControl:true,
+  preferCanvas:true
+});
+
+// Dark basemap
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap contributors © CARTO',
+  maxZoom:18
+}).addTo(map);
+
+// Labels on top
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
+  attribution:'',
+  maxZoom:18,
+  pane:'overlayPane'
+}).addTo(map);
+
+// Fix center (JS doesn't allow minus sign in negative number with unicode dash)
+map.setView([38.627, -90.197], 10);
+
+// Load GeoJSON for Missouri zip codes from public CDN
+fetch('https://raw.githubusercontent.com/OpenDataDE/State-zip-code-GeoJSON/master/mo_missouri_zip_codes_geo.min.json')
+  .then(r=>r.json())
+  .then(data=>{
+    // Filter to only our zip codes + adjacent
+    const ourZips = new Set(Object.keys(ZIP_DATA));
+    const filtered = {
+      type:'FeatureCollection',
+      features: data.features.filter(f=>{
+        const zip = f.properties.ZCTA5CE10 || f.properties.ZIP || '';
+        // Include our zips plus any starting with 630-633, 634 (St Louis metro)
+        return ourZips.has(zip) || zip.startsWith('630') || zip.startsWith('631') || zip.startsWith('632') || zip.startsWith('633');
+      })
+    };
+
+    geoLayer = L.geoJSON(filtered, {
+      style: styleFeature,
+      onEachFeature(feature, layer){
+        const zip = feature.properties.ZCTA5CE10 || feature.properties.ZIP || '';
+        const d = ZIP_DATA[zip];
+
+        layer.on('mouseover', function(e){
+          this.setStyle({weight:2.5,color:'#D4A017',fillOpacity:0.95});
+          this.bringToFront();
+        });
+        layer.on('mouseout', function(e){
+          geoLayer.resetStyle(this);
+        });
+        layer.on('click', function(){
+          showDetail(zip);
+        });
+
+        if(d){
+          const m = METRICS[currentMetric];
+          layer.bindTooltip(`<strong style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;">${zip}</strong><br>${d.city}<br>${m.fmt(getVal(d,currentMetric))}`,{
+            direction:'top',
+            className:'',
+            sticky:true
+          });
+        }
+      }
+    }).addTo(map);
+
+    // Fit map to our data bounds
+    const ourFeatures = filtered.features.filter(f=>ourZips.has(f.properties.ZCTA5CE10||''));
+    if(ourFeatures.length>0){
+      const ourLayer = L.geoJSON({type:'FeatureCollection',features:ourFeatures});
+      map.fitBounds(ourLayer.getBounds(), {padding:[20,20]});
+    }
+  })
+  .catch(err=>{
+    console.error('GeoJSON load failed:',err);
+    document.getElementById('map').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8A9BB0;font-family:DM Sans,sans-serif;font-size:14px;text-align:center;padding:40px;"><div><p style="font-size:32px;margin-bottom:16px;">⚠️</p><p>Map boundaries failed to load.<br>Check your internet connection and reload.</p></div></div>';
+  });
+
+updateLegend();
+</script>
+</body>
+</html>
